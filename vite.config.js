@@ -7,6 +7,9 @@ import { ElementPlusResolver } from "unplugin-vue-components/resolvers";
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  define: {
+    __VUE_PROD_HYDRATION_MISMATCH_DETAILS__: 'false' // 关闭详细警告
+  },
   plugins: [
     vue(),
     AutoImport({

@@ -1,10 +1,12 @@
 <template>
   <div></div>
   <el-menu class="el-menu-demo" mode="horizontal" :ellipsis="false">
-    <div class="navbar">“微商城”后台管理系统</div>
+    <div class="navbar">教学楼能耗后台管理系统</div>
     <el-sub-menu class="menu" index="1">
       <template #title>
-        <el-avatar class="avatar" :src="admin.avatar"> {{ admin.username }} </el-avatar>
+        <el-avatar class="avatar" :src="admin.avatar">
+          {{ admin.username }}
+        </el-avatar>
       </template>
       <router-link :to="{ name: 'setting' }">
         <el-menu-item index="5">个人中心</el-menu-item>
@@ -14,33 +16,33 @@
   </el-menu>
 </template>
 <script setup>
-import useAdmin from '../stores/admin'
-import { onMounted } from 'vue'
-import { getAdmin } from '../api'
-import router from '../router'
-import useToken from '../stores/token'
-import notification from '../utils/notification'
-const { removeToken } = useToken()
-const { admin, updateAdmin, removeAdmin } = useAdmin()
+import useAdmin from "../stores/admin";
+import { onMounted } from "vue";
+import { getAdmin } from "../api";
+import router from "../router";
+import useToken from "../stores/token";
+import notification from "../utils/notification";
+const { removeToken } = useToken();
+const { admin, updateAdmin, removeAdmin } = useAdmin();
 onMounted(() => {
-  loadAdmin()
-})
+  loadAdmin();
+});
 const loadAdmin = async () => {
-  let data = await getAdmin()
+  let data = await getAdmin();
   updateAdmin({
     username: data.username,
-    avatar: data.avatar
-  })
-}
+    avatar: data.avatar,
+  });
+};
 const onLogout = async () => {
-  removeToken()
-  removeAdmin()
-  router.push({ name: 'login' })
+  removeToken();
+  removeAdmin();
+  router.push({ name: "login" });
   notification({
-    message: '退出成功',
-    type: 'success'
-  })
-}
+    message: "退出成功",
+    type: "success",
+  });
+};
 </script>
 <style scoped lang="scss">
 .el-menu-demo {

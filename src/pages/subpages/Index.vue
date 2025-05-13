@@ -1,123 +1,212 @@
 <script setup>
-import { reactive, onMounted } from 'vue'
-import { getAdmin } from '../../api'
-import useAdmin from '../../stores/admin'
-import { Memo } from '@element-plus/icons-vue'
-import * as echarts from 'echarts'
-const { admin, updateAdmin } = useAdmin()
-onMounted(() => {
-  loadAdmin()
-  initCharts1()
-  initCharts2()
-})
-// 图表 1：月度销售额
-const initCharts1 = () => {
-  const myChart = echarts.init(document.getElementById('salesVolume'))
-  myChart.setOption({
-    color: ['#1493fa'],
-    title: { text: '2022 年月度销售额' },
-    xAxis: {
-      data: ['1 月', '2 月', '3 月', '4 月', '5 月', '6 月', '7 月', '8 月', '9月', '10 月', '11 月', '12 月'],
-      name: '月份',
-      axisLabel: {
-        interval: 0
-      },
-    },
-    yAxis: {
-      name: '单位（千万元）',
-    },
-    grid: {
-      left: '3%',
-      right: '8%',
-      bottom: '5%',
-      containLabel: true,
-    },
-    legend: {},
-    series: [
-      {
-        data: [6, 7, 8.5, 8, 9, 10, 13, 12, 10, 16, 15, 14],
-        type: 'line',
-        name: '销售额',
-        smooth: true,
-        label: {
-          show: true,
-          position: 'top',
-        }
-      }
-    ]
-  })
-  // 图表自适应大小
-  window.onresize = () => {
-    myChart.resize()
+import {
+  reactive,
+  onMounted,
+  ref,
+  onBeforeUnmount,
+  shallowRef,
+  computed,
+} from "vue";
+import { getAdmin } from "../../api";
+import useAdmin from "../../stores/admin";
+import { Memo, Lightning, DataAnalysis } from "@element-plus/icons-vue";
+import { Watermelon } from "@element-plus/icons-vue";
+import { defineAsyncComponent } from "vue";
+import axios from "axios";
+
+const { admin, updateAdmin } = useAdmin();
+
+// 使用 shallowRef 结合 defineAsyncComponent 定义异步组件
+const Dpie = shallowRef(
+  defineAsyncComponent(() => import("../../components/D-Pie.vue"))
+);
+const TrendChart = shallowRef(
+  defineAsyncComponent(() => import("../../components/TrendChart.vue"))
+);
+const PieChart = shallowRef(
+  defineAsyncComponent(() => import("../../components/PieChart.vue"))
+);
+const BTrendChart = shallowRef(
+  defineAsyncComponent(() => import("../../components/B-TrendChart.vue"))
+);
+const CTrendChart = shallowRef(
+  defineAsyncComponent(() => import("../../components/C-TrendChart.vue"))
+);
+
+// 使用 shallowRef 减少响应式开销
+const loadingPie = ref(true);
+const loading1 = ref(true);
+const loading2 = ref(true);
+const loading3 = ref(true);
+const loading4 = ref(true);
+
+// 图表数据
+const chartDataPie = ref([]);
+const chartData1 = ref({});
+const chartData2 = ref({});
+const chartData3 = ref({});
+const chartData4 = ref({});
+
+// 缓存对象
+const apiCache = reactive({});
+
+// 默认数据
+const defaultPieData = [
+  { value: 320, name: "A教" },
+  { value: 280, name: "B教" },
+  { value: 260, name: "C教" },
+];
+
+const defaultChart1 = {
+  xData: [
+    "1月",
+    "2月",
+    "3月",
+    "4月",
+    "5月",
+    "6月",
+    "7月",
+    "8月",
+    "9月",
+    "10月",
+    "11月",
+    "12月",
+  ],
+  seriesData: [60, 67, 58.5, 61, 69, 70, 75, 80, 65, 70, 72, 68],
+};
+
+const defaultChart2 = {
+  xData: ["1月", "2月", "3月", "4月", "5月"],
+  seriesA: [320, 300, 280, 260, 380],
+  seriesB: [280, 270, 250, 240, 320],
+  seriesC: [260, 240, 220, 200, 300],
+};
+
+const defaultChart3 = {
+  xData: [
+    "1月",
+    "2月",
+    "3月",
+    "4月",
+    "5月",
+    "6月",
+    "7月",
+    "8月",
+    "9月",
+    "10月",
+    "11月",
+    "12月",
+  ],
+  seriesData: [70, 75, 80, 65, 70, 72, 68, 75, 80, 65, 70, 75],
+};
+
+const defaultChart4 = {
+  xData: ["1月", "2月", "3月", "4月", "5月"],
+  seriesA: [300, 320, 340, 360, 380],
+  seriesB: [250, 270, 290, 310, 330],
+  seriesC: [200, 220, 240, 260, 280],
+};
+
+// 带缓存的API请求
+const fetchWithCache = async (url) => {
+  if (apiCache[url]) {
+    return apiCache[url];
   }
-}
-// 图表 2：2022 年订单数量
-const initCharts2 = () => {
-  const myChart = echarts.init(document.getElementById('orderQuantity'))
-  myChart.setOption({
-    title: { text: '2022 年订单数量' },
-    color: ['#1493fa'],
-    grid: {
-      left: '3%',
-      right: '8%',
-      bottom: '3%',
-      containLabel: true,
-    },
-    xAxis: {
-      type: 'category',
-      data: ['1 月', '2 月', '3 月', '4 月', '5 月', '6 月', '7 月', '8 月', '9月', '10 月', '11 月', '12 月'],
-      name: '月份',
-      // 类目轴中在 boundaryGap 为 true 的时候有效，可以保证刻度线和标签对齐
-      axisTick: {
-        alignWithLabel: true,
-      },
-      axisLabel: {
-        interval: 0, rotate: 45 // 设置刻度标签旋转角度为 45 度
-      },
-    },
-    legend: {},
-    yAxis: {
-      name: '单位（个）',
-    },
-    series: [
-      {
-        data: [400, 450, 300, 230, 250, 300, 400, 350, 160, 350, 380, 400],
-        type: 'bar',
-        barWidth: '60%',
-        name: '订单总数',
-        label: {
-          show: true,
-          position: 'top',
-        }
-      }
-    ]
-  })
-  // 图表自适应大小
-  window.onresize = () => {
-    myChart.resize()
+
+  const response = await axios.get(url);
+  apiCache[url] = response.data;
+  return response.data;
+};
+
+// API请求
+const fetchData = async () => {
+  try {
+    // 并行请求多个API
+    const [pieRes, chart1Res, chart2Res, chart3Res, chart4Res] =
+      await Promise.all([
+        fetchWithCache("/api/energy-pie"),
+        fetchWithCache("/api/power-total"),
+        fetchWithCache("/api/power-building"),
+        fetchWithCache("/api/water-total"),
+        fetchWithCache("/api/water-building"),
+      ]);
+
+    console.log("pieRes.data:", pieRes.data);
+    console.log("chart1Res.data:", chart1Res.data);
+    console.log("chart2Res.data:", chart2Res.data);
+    console.log("chart3Res.data:", chart3Res.data);
+    console.log("chart4Res.data:", chart4Res.data);
+
+    chartDataPie.value = pieRes.data || defaultPieData;
+    chartData1.value = chart1Res.data || defaultChart1;
+    chartData2.value = chart2Res.data || defaultChart2;
+    chartData3.value = chart3Res.data || defaultChart3;
+    chartData4.value = chart4Res.data || defaultChart4;
+  } catch (error) {
+    console.error("API请求失败，使用默认数据:", error);
+    chartDataPie.value = defaultPieData;
+    chartData1.value = defaultChart1;
+    chartData2.value = defaultChart2;
+    chartData3.value = defaultChart3;
+    chartData4.value = defaultChart4;
+  } finally {
+    // 延迟加载以确保骨架屏显示足够长时间
+    setTimeout(() => {
+      loadingPie.value = false;
+      loading1.value = false;
+      loading2.value = false;
+      loading3.value = false;
+      loading4.value = false;
+    }, 500); // 至少显示500ms的加载状态
   }
-}
+};
+
+onMounted(async () => {
+  // 并行加载数据，不再需要等待组件导入
+  await Promise.all([loadAdmin(), fetchData()]);
+});
+
+// 公用方法
+const addResizeListener = (chart) => {
+  const handler = () => chart.resize();
+  window.addEventListener("resize", handler);
+  onBeforeUnmount(() => {
+    window.removeEventListener("resize", handler);
+    chart.dispose();
+  });
+};
+
 const loadAdmin = async () => {
-  let data = await getAdmin()
+  let data = await getAdmin();
   updateAdmin({
     username: data.username,
-    avatar: data.avatar
-  })
-}
+    avatar: data.avatar,
+  });
+};
+
 // 用户登录信息（模拟数据）
 const loginInfo = reactive({
-  loginTime: '2023-07-22 09:00:00',
-  loginPlace: '北京'
-})
+  loginTime: "2025-05-09 09:00:00",
+  loginPlace: "北京",
+});
 </script>
+
+<!-- 模板部分保持不变 -->
+
 <template>
   <el-row :gutter="20">
     <el-col :span="6">
       <el-card class="box-card">
         <template #header>
           <div class="card-header">
-            <el-avatar class="avatar" :src="admin.avatar" shape="square" :size="40"> </el-avatar>
-            <span style="font-size: 24px;">{{ admin.username }} </span>
+            <el-avatar
+              class="avatar"
+              :src="admin.avatar"
+              shape="square"
+              :size="40"
+            >
+            </el-avatar>
+            <span style="font-size: 24px">{{ admin.username }} </span>
           </div>
         </template>
         <div class="info">
@@ -127,54 +216,66 @@ const loginInfo = reactive({
       </el-card>
     </el-col>
     <!-- 单月统计信息展示 -->
+    <!-- 月度能耗统计信息展示 -->
     <el-col :span="18">
       <el-card class="box-card">
         <template #header>
           <div class="card-header">
-            6 月统计信息
+            <span style="font-size: 18px">📊 2025年5月能耗统计</span>
           </div>
         </template>
         <div class="info">
           <el-row :gutter="24">
-            <!-- 商品数量 -->
+            <!-- A教学楼 -->
             <el-col :span="8">
               <div class="card-container">
-                <div class="card-left-container" style="background-color: #EEAD0E;">
-                  <el-icon :size="90">
-                    <Memo />
+                <div
+                  class="card-left-container"
+                  style="background-color: #ff6b6b"
+                >
+                  <el-icon :size="90" color="#fff">
+                    <Lightning />
                   </el-icon>
                 </div>
                 <div class="card-right-container">
-                  <p class="number">500</p>
-                  <p>商品数量(个)</p>
+                  <p class="number">3,85</p>
+                  <p>A教总耗能</p>
                 </div>
               </div>
             </el-col>
-            <!-- 商品分类数量 -->
+
+            <!-- B教学楼 -->
             <el-col :span="8">
               <div class="card-container">
-                <div class="card-left-container" style="background-color: #AB82FF;">
-                  <el-icon :size="90">
-                    <Memo />
+                <div
+                  class="card-left-container"
+                  style="background-color: #4ecdc4"
+                >
+                  <el-icon :size="90" color="#fff">
+                    <Watermelon />
                   </el-icon>
                 </div>
                 <div class="card-right-container">
-                  <p class="number">20</p>
-                  <p>商品分类数量(个)</p>
+                  <p class="number">520</p>
+                  <p>B教总耗能</p>
                 </div>
               </div>
             </el-col>
-            <!-- 用户访问次数 -->
+
+            <!-- C教学楼 -->
             <el-col :span="8">
               <div class="card-container">
-                <div class="card-left-container" style=" background-color: #63B8FF;">
-                  <el-icon :size="90">
-                    <Memo />
+                <div
+                  class="card-left-container"
+                  style="background-color: #45b7d1"
+                >
+                  <el-icon :size="90" color="#fff">
+                    <DataAnalysis />
                   </el-icon>
                 </div>
                 <div class="card-right-container">
-                  <p class="number">121</p>
-                  <p>用户访问次数(次)</p>
+                  <p class="number">8,24</p>
+                  <p>C教总能耗</p>
                 </div>
               </div>
             </el-col>
@@ -185,20 +286,138 @@ const loginInfo = reactive({
   </el-row>
   <!-- 图表区域 -->
   <el-row :gutter="20">
-    <el-col :span="12">
-      <!-- 通过折线图展示 2022 年月度销售额 -->
+    <!-- 其他图表 -->
+    <el-col :span="24">
       <el-card class="box-card">
-        <div id="salesVolume" style="width: auto; height:400px;"></div>
+        <div class="chart-container">
+          <!-- 使用骨架屏替代简单的加载文本 -->
+          <div v-if="loadingPie" class="skeleton-chart">
+            <div
+              class="skeleton-line"
+              style="width: 80%; margin: 20px auto"
+            ></div>
+            <div
+              class="skeleton-line"
+              style="width: 60%; margin: 20px auto"
+            ></div>
+            <div class="skeleton-circle" style="margin: 40px auto"></div>
+          </div>
+          <component
+            v-else
+            :is="Dpie"
+            :data="chartDataPie"
+            style="height: 400px"
+          />
+        </div>
+      </el-card>
+    </el-col>
+  </el-row>
+  <el-row :gutter="20">
+    <el-col :span="12">
+      <!-- A教本周能耗趋势折线图 -->
+      <el-card class="box-card">
+        <h3>A教本周能耗趋势</h3>
+        <div class="chart-container">
+          <div v-if="loading1" class="skeleton-chart">
+            <div
+              class="skeleton-line"
+              style="width: 80%; margin: 20px auto"
+            ></div>
+            <div
+              class="skeleton-line"
+              style="width: 60%; margin: 20px auto"
+            ></div>
+            <div class="skeleton-lines" style="margin: 40px auto"></div>
+          </div>
+          <component
+            v-else
+            :is="TrendChart"
+            :chart-data="chartData1"
+            style="height: 400px"
+          />
+        </div>
       </el-card>
     </el-col>
     <el-col :span="12">
-      <!-- 通过柱状图展示 2022 年订单数量 -->
+      <!-- 本周能耗类型分布饼图 -->
       <el-card class="box-card">
-        <div id="orderQuantity" style="width: auto; height:400px;"></div>
+        <h3>本周能耗类型分布</h3>
+        <div class="chart-container">
+          <div v-if="loading2" class="skeleton-chart">
+            <div
+              class="skeleton-line"
+              style="width: 80%; margin: 20px auto"
+            ></div>
+            <div
+              class="skeleton-line"
+              style="width: 60%; margin: 20px auto"
+            ></div>
+            <div class="skeleton-bars" style="margin: 40px auto"></div>
+          </div>
+          <component
+            v-else
+            :is="PieChart"
+            :data="chartData2"
+            style="height: 400px"
+          />
+        </div>
+      </el-card>
+    </el-col>
+  </el-row>
+  <el-row :gutter="20">
+    <el-col :span="12">
+      <!-- B教本周能耗趋势折线图 -->
+      <el-card class="box-card">
+        <h3>B教本周能耗趋势</h3>
+        <div class="chart-container">
+          <div v-if="loading3" class="skeleton-chart">
+            <div
+              class="skeleton-line"
+              style="width: 80%; margin: 20px auto"
+            ></div>
+            <div
+              class="skeleton-line"
+              style="width: 60%; margin: 20px auto"
+            ></div>
+            <div class="skeleton-lines" style="margin: 40px auto"></div>
+          </div>
+          <component
+            v-else
+            :is="BTrendChart"
+            :data="chartData3"
+            style="height: 400px"
+          />
+        </div>
+      </el-card>
+    </el-col>
+    <el-col :span="12">
+      <!-- C教本周能耗趋势折线图 -->
+      <el-card class="box-card">
+        <h3>C教本周能耗趋势</h3>
+        <div class="chart-container">
+          <div v-if="loading4" class="skeleton-chart">
+            <div
+              class="skeleton-line"
+              style="width: 80%; margin: 20px auto"
+            ></div>
+            <div
+              class="skeleton-line"
+              style="width: 60%; margin: 20px auto"
+            ></div>
+            <div class="skeleton-bars" style="margin: 40px auto"></div>
+          </div>
+          <component
+            v-else
+            :is="CTrendChart"
+            :data="chartData4"
+            style="height: 400px"
+          />
+        </div>
       </el-card>
     </el-col>
   </el-row>
 </template>
+
 <style lang="scss" scoped>
 .el-row {
   margin-bottom: 20px;
@@ -238,6 +457,76 @@ const loginInfo = reactive({
     .number {
       font-size: 18px;
       font-weight: bold;
+    }
+  }
+}
+
+.chart-container {
+  position: relative;
+  width: 100%;
+  height: 400px;
+}
+
+.loading {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 12px 24px;
+  background: rgba(0, 0, 0, 0.7);
+  color: #fff;
+  border-radius: 4px;
+  font-size: 14px;
+  z-index: 10;
+}
+
+/* 骨架屏样式 */
+.skeleton-chart {
+  width: 100%;
+  height: 100%;
+  background-color: #f5f5f5;
+  border-radius: 4px;
+  padding: 20px;
+  box-sizing: border-box;
+
+  .skeleton-line {
+    height: 20px;
+    background-color: #e0e0e0;
+    border-radius: 4px;
+  }
+
+  .skeleton-circle {
+    width: 120px;
+    height: 120px;
+    background-color: #e0e0e0;
+    border-radius: 50%;
+  }
+
+  .skeleton-lines {
+    height: 180px;
+    display: flex;
+    align-items: flex-end;
+    gap: 5px;
+    padding: 0 20px;
+
+    div {
+      flex: 1;
+      background-color: #e0e0e0;
+      border-radius: 4px;
+    }
+  }
+
+  .skeleton-bars {
+    height: 180px;
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+    padding: 0 20px;
+
+    div {
+      width: 20px;
+      background-color: #e0e0e0;
+      border-radius: 4px;
     }
   }
 }
